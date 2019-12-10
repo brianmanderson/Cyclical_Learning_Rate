@@ -240,3 +240,4 @@ Note that the clr callback updates the learning rate prior to any further learni
 
 clr_callback_tests.ipynb contains tests demonstrating desired behavior of optimizers.
 "# Cyclical_Learning_Rate" 
+"# Cyclical_Learning_Rate" 
