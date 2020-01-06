@@ -1,5 +1,6 @@
 from keras.callbacks import *
 
+
 class CyclicLR(Callback):
     """This callback implements a cyclical learning rate policy (CLR).
     The method cycles the learning rate between two boundaries with
