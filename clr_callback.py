@@ -63,6 +63,9 @@ class CyclicLR(Callback):
     def __init__(self, base_lr=0.001, max_lr=0.006, step_size=2000., mode='triangular',
                  gamma=1., scale_fn=None, scale_mode='cycle', pre_cycle=0):
         super(CyclicLR, self).__init__()
+        # self.cycle_scale = cycle_scale
+        # self.current_cycle = 1.0
+        # self.previous_clr = 0
         self.base_lr = base_lr
         self.max_lr = max_lr
         self.step_size = step_size
@@ -103,6 +106,10 @@ class CyclicLR(Callback):
         
     def clr(self):
         cycle = np.floor(1 + self.clr_iterations / (2 * self.step_size))
+        # if self.current_cycle < cycle and self.cycle_scale != 1.0:
+        #     self.previous_clr = self.clr_iterations
+        #     self.step_size *= self.cycle_scale
+        #     self.current_cycle = cycle
         x = np.abs(self.clr_iterations / self.step_size - 2 * cycle + 1)
         if self.scale_mode == 'cycle':
             if cycle <= self.pre_cycle:
