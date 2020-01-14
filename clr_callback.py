@@ -61,7 +61,7 @@ class CyclicLR(Callback):
     """
 
     def __init__(self, base_lr=0.001, max_lr=0.006, step_size=2000., mode='triangular',
-                 gamma=1., scale_fn=None, scale_mode='cycle', pre_cycle=0):
+                 gamma=1., scale_fn=None, scale_mode='cycle', pre_cycle=0, reduction_factor=2.):
         super(CyclicLR, self).__init__()
         # self.cycle_scale = cycle_scale
         # self.current_cycle = 1.0
@@ -72,14 +72,14 @@ class CyclicLR(Callback):
         self.mode = mode
         self.gamma = gamma
         self.pre_cycle = pre_cycle
-        self.pre_cycle_max_lr = self.max_lr / 2**(self.pre_cycle)
-        self.scale_fn_pre = lambda x: (2. ** (x - 1))
+        self.pre_cycle_max_lr = self.max_lr / reduction_factor**(self.pre_cycle)
+        self.scale_fn_pre = lambda x: (reduction_factor ** (x - 1))
         if scale_fn == None:
             if self.mode == 'triangular':
                 self.scale_fn = lambda x: 1.
                 self.scale_mode = 'cycle'
             elif self.mode == 'triangular2':
-                self.scale_fn = lambda x: 1 / (2. ** (x - 1))
+                self.scale_fn = lambda x: 1 / (reduction_factor ** (x - 1))
                 self.scale_mode = 'cycle'
             elif self.mode == 'exp_range':
                 self.scale_fn = lambda x: gamma ** (x)
