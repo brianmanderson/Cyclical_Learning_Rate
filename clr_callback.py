@@ -1,5 +1,6 @@
 from keras.callbacks import *
 import numpy as np
+from keras.optimizers import Adam
 
 
 class CyclicLR(Callback):
@@ -148,6 +149,7 @@ class CyclicLR(Callback):
     def on_epoch_end(self, epoch, logs=None):
         if logs is not None:
             logs['learning_rate'] = self.clr()
+        return logs
 
 
 class CyclicLR_onecycle(Callback):
@@ -287,10 +289,6 @@ class CyclicLR_onecycle(Callback):
             self.history.setdefault(k, []).append(v)
 
         K.set_value(self.model.optimizer.lr, self.clr())
-
-    def on_epoch_end(self, epoch, logs=None):
-        if logs is not None:
-            logs['learning_rate'] = self.clr()
 
 
 class LinearLR(Callback):
@@ -540,3 +538,4 @@ class Half_Drop(Callback):
     def on_epoch_end(self, epoch, logs=None):
         if logs is not None:
             logs['learning_rate'] = self.clr()
+        return logs
