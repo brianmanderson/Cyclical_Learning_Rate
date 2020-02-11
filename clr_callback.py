@@ -63,11 +63,13 @@ class CyclicLR(Callback):
     """
 
     def __init__(self, base_lr=0.001, max_lr=0.006, step_size=2000., mode='triangular',
-                 gamma=1., scale_fn=None, scale_mode='cycle', pre_cycle=0, reduction_factor=2.):
+                 gamma=1., scale_fn=None, scale_mode='cycle', pre_cycle=0, reduction_factor=2., base_reduce_factor=1):
         super(CyclicLR, self).__init__()
         # self.cycle_scale = cycle_scale
         # self.current_cycle = 1.0
         # self.previous_clr = 0
+        self.cycle = 1.0
+        self.base_reduce_factor = base_reduce_factor
         self.base_lr = base_lr
         self.max_lr = max_lr
         self.step_size = step_size
@@ -108,10 +110,9 @@ class CyclicLR(Callback):
         
     def clr(self):
         cycle = np.floor(1 + self.clr_iterations / (2 * self.step_size))
-        # if self.current_cycle < cycle and self.cycle_scale != 1.0:
-        #     self.previous_clr = self.clr_iterations
-        #     self.step_size *= self.cycle_scale
-        #     self.current_cycle = cycle
+        if cycle > self.cycle:
+            self.cycle = cycle
+            self.base_lr /= self.base_reduce_factor
         x = np.abs(self.clr_iterations / self.step_size - 2 * cycle + 1)
         if self.scale_mode == 'cycle':
             if cycle <= self.pre_cycle:
@@ -483,59 +484,19 @@ class Half_Drop(Callback):
             iterations since start of cycle). Default is 'cycle'.
     """
 
-    def __init__(self, base_lr=0.001, step_size=2000.):
+    def __init__(self, base_lr=0.001, step_epoch=50):
         super(Half_Drop, self).__init__()
 
         self.base_lr = base_lr
-        self.step_size = step_size
+        self.step_epoch = step_epoch
         self.scale_fn = lambda x: 1 / (2. ** (x - 1))
-        self.clr_iterations = 0.
-        self.trn_iterations = 0.
-        self.history = {}
-
-        self._reset()
-
-    def _reset(self, new_base_lr=None, new_max_lr=None,
-               new_step_size=None):
-        """Resets cycle iterations.
-        Optional boundary/step size adjustment.
-        """
-        if new_base_lr != None:
-            self.base_lr = new_base_lr
-        if new_max_lr != None:
-            self.max_lr = new_max_lr
-        if new_step_size != None:
-            self.step_size = new_step_size
-        self.clr_iterations = 0.
-
-    def clr(self):
-        cycle = np.floor(1 + self.clr_iterations / (2 * self.step_size))
-        output = self.base_lr * self.scale_fn(cycle)
-        return output
-
-    def on_train_begin(self, logs={}):
-        logs = logs or {}
-
-        if self.clr_iterations == 0:
-            K.set_value(self.model.optimizer.lr, self.base_lr)
-        else:
-            K.set_value(self.model.optimizer.lr, self.clr())
-
-    def on_batch_end(self, epoch, logs=None):
-
-        logs = logs or {}
-        self.trn_iterations += 1
-        self.clr_iterations += 1
-
-        self.history.setdefault('lr', []).append(K.get_value(self.model.optimizer.lr))
-        self.history.setdefault('iterations', []).append(self.trn_iterations)
-
-        for k, v in logs.items():
-            self.history.setdefault(k, []).append(v)
-
-        K.set_value(self.model.optimizer.lr, self.clr())
+        self.cycle = 0.0
+        self.epoch = 0
 
     def on_epoch_end(self, epoch, logs=None):
-        if logs is not None:
-            logs['learning_rate'] = self.clr()
-        return logs
+        self.epoch += 1
+        cycle = np.floor(self.epoch / self.step_epoch)
+        if cycle != self.cycle:
+            print(self.base_lr * self.scale_fn(cycle))
+            # K.set_value(self.model.optimizer.lr, self.base_lr * self.scale_fn(cycle))
+            self.cycle = cycle
