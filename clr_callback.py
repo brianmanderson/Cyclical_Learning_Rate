@@ -1,6 +1,6 @@
-from tensorflow.keras.callbacks import *
+from tensorflow.python.keras.callbacks import *
 import numpy as np
-from tensorflow.keras.optimizers import Adam
+import tensorflow.python.keras.backend as K
 
 
 class CyclicLR(Callback):
@@ -62,17 +62,35 @@ class CyclicLR(Callback):
             iterations since start of cycle). Default is 'cycle'.
     """
 
-    def __init__(self, base_lr=0.001, max_lr=0.006, step_size=2000., mode='triangular',
-                 gamma=1., scale_fn=None, scale_mode='cycle', pre_cycle=0, reduction_factor=2., base_reduce_factor=1):
+    def __init__(self, base_lr=0.001, max_lr=0.006, step_size=2000., step_size_factor=8,mode='triangular',scale_mode='linear_cycle',
+                 gamma=1., scale_fn=None, pre_cycle=0, reduction_factor=2., base_reduce_factor=1,
+                 step_size_factor_scale=lambda x: x):
+        '''
+        :param base_lr:
+        :param max_lr:
+        :param step_size: # of steps per epoch
+        :param step_size_factor: # of epochs per cycle
+        :param mode:
+        :param gamma:
+        :param scale_fn:
+        :param scale_mode:
+        :param pre_cycle:
+        :param reduction_factor:
+        :param base_reduce_factor:
+        :param step_size_factor_scale:
+        '''
         super(CyclicLR, self).__init__()
         # self.cycle_scale = cycle_scale
         # self.current_cycle = 1.0
         # self.previous_clr = 0
         self.cycle = 1.0
+        self.scale_mode = scale_mode
         self.base_reduce_factor = base_reduce_factor
         self.base_lr = base_lr
         self.max_lr = max_lr
         self.step_size = step_size
+        self.step_size_factor = step_size_factor
+        self.step_size_factor_scale = step_size_factor_scale
         self.mode = mode
         self.gamma = gamma
         self.pre_cycle = pre_cycle
@@ -81,19 +99,17 @@ class CyclicLR(Callback):
         if scale_fn == None:
             if self.mode == 'triangular':
                 self.scale_fn = lambda x: 1.
-                self.scale_mode = 'cycle'
             elif self.mode == 'triangular2':
                 self.scale_fn = lambda x: 1 / (reduction_factor ** (x - 1))
-                self.scale_mode = 'cycle'
             elif self.mode == 'exp_range':
                 self.scale_fn = lambda x: gamma ** (x)
-                self.scale_mode = 'iterations'
         else:
             self.scale_fn = scale_fn
-            self.scale_mode = scale_mode
         self.clr_iterations = 0.
         self.trn_iterations = 0.
+        self.current_max = self.max_lr
         self.history = {}
+        self.lr = base_lr
 
     def _reset(self, new_base_lr=None, new_max_lr=None,
                new_step_size=None):
@@ -109,18 +125,40 @@ class CyclicLR(Callback):
         self.clr_iterations = 0.
         
     def clr(self):
-        cycle = np.floor(1 + self.clr_iterations / (2 * self.step_size))
-        if cycle > self.cycle:
-            self.cycle = cycle
+        if self.scale_mode == 'exp_cycle':
+            cycle = np.floor(1 + self.clr_iterations / (self.step_size * self.step_size_factor))
+            if cycle > 2:
+                self.cycle += 1
+                self.current_max = self.max_lr * self.scale_fn(self.cycle - self.pre_cycle)
+                self.clr_iterations = 0
+                self.base_lr /= self.base_reduce_factor
+                self.lr = self.base_lr
+                self.step_size_factor = self.step_size_factor_scale(self.step_size_factor)
+                cycle = 1.0
+            lrMult = (self.current_max / self.base_lr) ** (1.0 / (self.step_size * self.step_size_factor))
+            if cycle == 2:
+                self.lr /= lrMult
+            else:
+                self.lr *= lrMult
+            output = self.lr
+            return output
+
+        cycle = np.floor(1 + self.clr_iterations / (2 * self.step_size * self.step_size_factor))
+        if cycle > 1:
+            self.cycle += 1
+            self.current_max = self.max_lr*self.scale_fn(self.cycle-self.pre_cycle)
+            self.clr_iterations = 0
             self.base_lr /= self.base_reduce_factor
-        x = np.abs(self.clr_iterations / self.step_size - 2 * cycle + 1)
-        if self.scale_mode == 'cycle':
+            self.step_size_factor = self.step_size_factor_scale(self.step_size_factor)
+        x = np.abs(1 - self.clr_iterations / (self.step_size * self.step_size_factor))
+        if self.scale_mode == 'linear_cycle':
             if cycle <= self.pre_cycle:
                 output = self.base_lr + (self.pre_cycle_max_lr - self.base_lr) * \
                          np.maximum(0, (1 - x)) * self.scale_fn_pre(cycle)
             else:
-                output = self.base_lr + (self.max_lr - self.base_lr) * np.maximum(0, (1 - x)) * self.scale_fn(cycle-self.pre_cycle)
+                output = self.base_lr + (self.current_max - self.base_lr) * np.maximum(0, (1 - x))
             return output
+
         else:
             return self.base_lr + (self.max_lr - self.base_lr) * np.maximum(0, (1 - x)) * self.scale_fn(
                 self.clr_iterations)
@@ -131,7 +169,7 @@ class CyclicLR(Callback):
         if self.clr_iterations == 0:
             K.set_value(self.model.optimizer.lr, self.base_lr)
         else:
-            K.set_value(self.model.optimizer.lr, self.clr())        
+            K.set_value(self.model.optimizer.lr, self.clr())
             
     def on_batch_end(self, epoch, logs=None):
         
@@ -147,10 +185,10 @@ class CyclicLR(Callback):
         
         K.set_value(self.model.optimizer.lr, self.clr())
 
-    def on_epoch_end(self, epoch, logs=None):
-        if logs is not None:
-            logs['learning_rate'] = self.clr()
-        return logs
+    # def on_epoch_end(self, epoch, logs=None):
+    #     if logs is not None:
+    #         logs['learning_rate'] = self.clr()
+    #     return logs
 
 
 class CyclicLR_onecycle(Callback):
