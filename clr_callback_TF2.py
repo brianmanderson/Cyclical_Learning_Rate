@@ -616,12 +616,13 @@ class SGDRScheduler(Callback):
         '''Check for end of current cycle, apply restarts when necessary.'''
         self.epoch += 1
         if epoch + 1 == self.next_restart:
-            if self.epoch < self.gentle_start_epochs:
+            if self.epoch >= self.gentle_start_epochs:
                 self.batch_since_restart = 0
                 self.cycle_length = np.ceil(self.cycle_length * self.mult_factor)
                 self.next_restart += self.cycle_length
                 self.max_lr *= self.lr_decay
             self.best_weights = self.model.get_weights()
+
 
     def on_train_end(self, logs={}):
         '''Set weights to the values from the end of the most recent cycle for best performance.'''
