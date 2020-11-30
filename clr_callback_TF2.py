@@ -571,7 +571,7 @@ class SGDRScheduler(Callback):
                  lr_decay=1,
                  cycle_length=10,
                  mult_factor=2,
-                 gentle_start_epochs=0):
+                 gentle_start_epochs=0, gentle_fraction=1.):
         super(SGDRScheduler, self).__init__()
         self.min_lr = min_lr
         self.max_lr = max_lr
@@ -585,6 +585,7 @@ class SGDRScheduler(Callback):
         self.cycle_length = cycle_length
         self.mult_factor = mult_factor
         self.gentle_start_epochs = gentle_start_epochs
+        self.gentle_fraction = gentle_fraction
         self.epoch = 0
         self.history = {}
 
@@ -594,7 +595,8 @@ class SGDRScheduler(Callback):
         if self.epoch >= self.gentle_start_epochs:
             lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 + np.cos(fraction_to_restart * np.pi))
         else:
-            lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 - np.cos(fraction_to_restart * np.pi))
+            lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 - np.cos(fraction_to_restart * np.pi)) * \
+                 self.gentle_fraction
         return lr
 
     def on_train_begin(self, logs={}):
