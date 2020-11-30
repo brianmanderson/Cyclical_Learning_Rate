@@ -616,6 +616,7 @@ class SGDRScheduler(Callback):
         if epoch + 1 == self.next_restart:
             self.batch_since_restart = 0
             if self.mult != -1:
+                print('increased')
                 self.cycle_length = np.ceil(self.cycle_length * self.mult_factor)
                 self.next_restart += self.cycle_length
                 self.max_lr *= self.lr_decay
