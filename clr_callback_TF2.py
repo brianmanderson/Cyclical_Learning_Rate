@@ -571,7 +571,7 @@ class SGDRScheduler(Callback):
                  lr_decay=1,
                  cycle_length=10,
                  mult_factor=2,
-                 gentle_start=False):
+                 gentle_start_epochs=0):
         super(SGDRScheduler, self).__init__()
         self.min_lr = min_lr
         self.max_lr = max_lr
@@ -584,17 +584,17 @@ class SGDRScheduler(Callback):
 
         self.cycle_length = cycle_length
         self.mult_factor = mult_factor
-        if gentle_start:
-            self.mult = -1
-        else:
-            self.mult = 1
-        self.gentle_start = gentle_start
+        self.gentle_start_epochs = gentle_start_epochs
+        self.epoch = 0
         self.history = {}
 
     def clr(self):
         '''Calculate the learning rate.'''
         fraction_to_restart = self.batch_since_restart / (self.steps_per_epoch * self.cycle_length)
-        lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 + self.mult * np.cos(fraction_to_restart * np.pi))
+        if self.epoch > self.gentle_start_epochs:
+            lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 + np.cos(fraction_to_restart * np.pi))
+        else:
+            lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 - np.cos(fraction_to_restart * np.pi))
         return lr
 
     def on_train_begin(self, logs={}):
@@ -614,17 +614,13 @@ class SGDRScheduler(Callback):
 
     def on_epoch_end(self, epoch, logs={}):
         '''Check for end of current cycle, apply restarts when necessary.'''
+        self.epoch += 1
         if epoch + 1 == self.next_restart:
-            self.batch_since_restart = 0
-            if self.gentle_start:
-                print('reset')
-                self.gentle_start = False
-            else:
-                print('increased')
+            if self.epoch < self.gentle_start_epochs:
+                self.batch_since_restart = 0
                 self.cycle_length = np.ceil(self.cycle_length * self.mult_factor)
                 self.next_restart += self.cycle_length
                 self.max_lr *= self.lr_decay
-            self.mult = 1
             self.best_weights = self.model.get_weights()
 
     def on_train_end(self, logs={}):
