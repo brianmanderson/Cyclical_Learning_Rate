@@ -615,9 +615,9 @@ class SGDRScheduler(Callback):
         '''Check for end of current cycle, apply restarts when necessary.'''
         if epoch + 1 == self.next_restart:
             self.batch_since_restart = 0
-            if self.mult != 1:
-                self.batch_since_restart = 0
+            if self.gentle_start:
                 print('reset')
+                self.gentle_start = False
             else:
                 print('increased')
                 self.cycle_length = np.ceil(self.cycle_length * self.mult_factor)
