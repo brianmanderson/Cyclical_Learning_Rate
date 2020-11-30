@@ -578,7 +578,7 @@ class SGDRScheduler(Callback):
         self.lr_decay = lr_decay
 
         self.batch_since_restart = 0
-        self.next_restart = cycle_length
+        self.next_restart = cycle_length + gentle_start_epochs
 
         self.steps_per_epoch = steps_per_epoch
 
