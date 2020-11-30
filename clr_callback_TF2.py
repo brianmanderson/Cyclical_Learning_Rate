@@ -588,6 +588,7 @@ class SGDRScheduler(Callback):
             self.mult = -1
         else:
             self.mult = 1
+        self.gentle_start = gentle_start
         self.history = {}
 
     def clr(self):
