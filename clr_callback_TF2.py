@@ -570,7 +570,8 @@ class SGDRScheduler(Callback):
                  steps_per_epoch,
                  lr_decay=1,
                  cycle_length=10,
-                 mult_factor=2):
+                 mult_factor=2,
+                 gentle_start=False):
         super(SGDRScheduler, self).__init__()
         self.min_lr = min_lr
         self.max_lr = max_lr
@@ -583,13 +584,16 @@ class SGDRScheduler(Callback):
 
         self.cycle_length = cycle_length
         self.mult_factor = mult_factor
-
+        if gentle_start:
+            self.mult = -1
+        else:
+            self.mult = 1
         self.history = {}
 
     def clr(self):
         '''Calculate the learning rate.'''
         fraction_to_restart = self.batch_since_restart / (self.steps_per_epoch * self.cycle_length)
-        lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 + np.cos(fraction_to_restart * np.pi))
+        lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 + self.mult * np.cos(fraction_to_restart * np.pi))
         return lr
 
     def on_train_begin(self, logs={}):
@@ -611,6 +615,7 @@ class SGDRScheduler(Callback):
         '''Check for end of current cycle, apply restarts when necessary.'''
         if epoch + 1 == self.next_restart:
             self.batch_since_restart = 0
+            self.mult = 1
             self.cycle_length = np.ceil(self.cycle_length * self.mult_factor)
             self.next_restart += self.cycle_length
             self.max_lr *= self.lr_decay
