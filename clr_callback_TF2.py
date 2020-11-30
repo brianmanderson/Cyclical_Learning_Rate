@@ -591,7 +591,7 @@ class SGDRScheduler(Callback):
     def clr(self):
         '''Calculate the learning rate.'''
         fraction_to_restart = self.batch_since_restart / (self.steps_per_epoch * self.cycle_length)
-        if self.epoch > self.gentle_start_epochs:
+        if self.epoch >= self.gentle_start_epochs:
             lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 + np.cos(fraction_to_restart * np.pi))
         else:
             lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (1 - np.cos(fraction_to_restart * np.pi))
